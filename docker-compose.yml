@@ -1,0 +1,151 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lotto_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lotto_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lotto_password}
+      POSTGRES_DB: ${POSTGRES_DB:-lotto_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lotto_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6
+    container_name: lotto_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-lotto_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-lotto_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-lotto_db}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lotto_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ (Optional - for message queue)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: lotto_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lotto_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-lotto_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lotto_password}
+      - POSTGRES_DB=${POSTGRES_DB:-lotto_db}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_USER=${MONGO_USER:-lotto_user}
+      - MONGO_PASSWORD=${MONGO_PASSWORD:-lotto_password}
+      - MONGO_DB=${MONGO_DB:-lotto_db}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key}
+      - DEBUG=${DEBUG:-True}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lotto_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=${BACKEND_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm start
+
+  # Data Collector
+  data-collector:
+    build:
+      context: ./data-collector
+      dockerfile: Dockerfile
+    container_name: lotto_data_collector
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-lotto_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lotto_password}
+      - POSTGRES_DB=${POSTGRES_DB:-lotto_db}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - LOTTO_API_KEY=${LOTTO_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./data-collector:/app
+    command: python -m schedulers.main
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
+

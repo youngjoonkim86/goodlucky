@@ -1,0 +1,59 @@
+# 데이터베이스만 실행하는 Docker Compose 파일
+# Backend와 Frontend는 로컬에서 직접 실행할 때 사용
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lotto_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lotto_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lotto_password}
+      POSTGRES_DB: ${POSTGRES_DB:-lotto_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lotto_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6
+    container_name: lotto_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-lotto_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-lotto_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-lotto_db}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: lotto_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+

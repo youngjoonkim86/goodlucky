@@ -1,0 +1,67 @@
+# 최소 구성: PostgreSQL만 사용
+# MongoDB와 Redis 없이 기본 기능만 테스트
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: lotto_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-lotto_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lotto_password}
+      POSTGRES_DB: ${POSTGRES_DB:-lotto_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-lotto_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lotto_backend
+    ports:
+      - "8001:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-lotto_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lotto_password}
+      - POSTGRES_DB=${POSTGRES_DB:-lotto_db}
+      - REDIS_HOST=  # 비활성화
+      - MONGO_HOST=  # 비활성화
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key}
+      - DEBUG=${DEBUG:-True}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lotto_frontend
+    ports:
+      - "3002:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8001
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+volumes:
+  postgres_data:
+

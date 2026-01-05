@@ -1,0 +1,116 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lotto_user
+          POSTGRES_PASSWORD: lotto_password
+          POSTGRES_DB: lotto_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run linting
+        working-directory: ./backend
+        run: |
+          pip install flake8 black
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          black --check app/
+      
+      - name: Run tests (if available)
+        working-directory: ./backend
+        run: |
+          # pytest tests/ || echo "No tests found"
+          echo "Tests will be added later"
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      
+      - name: Run linting
+        working-directory: ./frontend
+        run: npm run lint || echo "Linting issues found"
+      
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+      
+      - name: Build backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: false
+          tags: lotto-backend:latest
+          cache-from: type=registry,ref=lotto-backend:latest
+          cache-to: type=inline
+      
+      - name: Build frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: false
+          tags: lotto-frontend:latest
+          cache-from: type=registry,ref=lotto-frontend:latest
+          cache-to: type=inline
+      
+      - name: Build data-collector image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./data-collector
+          push: false
+          tags: lotto-data-collector:latest
+          cache-from: type=registry,ref=lotto-data-collector:latest
+          cache-to: type=inline
+
