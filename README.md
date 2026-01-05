@@ -1,6 +1,17 @@
-# 로또 번호 분석 및 추천 플랫폼
+# 로또 번호 분석 및 추천 플랫폼 (GoodLucky)
 
-환경변수까지 고려한 데이터 수집 → 저장 → 분석 → 추천 → UI/UX 제공까지 전주기를 포괄하는 로또 번호 분석 및 추천 플랫폼입니다.
+[![Deploy](https://github.com/youngjoonkim86/goodlucky/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/youngjoonkim86/goodlucky/actions/workflows/deploy-pages.yml)
+
+**라이브 데모**: [배포된 페이지](https://youngjoonkim86.github.io/goodlucky) (GitHub Pages)
+
+환경변수까지 고려한 데이터 수집 → 저장 → 분석 → 추천 → UI/UX 제공까지 전주기(End-to-End)를 포괄하는 로또 번호 분석 및 추천 플랫폼입니다.
+
+## 🌐 배포된 사이트
+
+- **GitHub Pages**: https://youngjoonkim86.github.io/goodlucky
+- **GitHub 저장소**: https://github.com/youngjoonkim86/goodlucky
+
+배포 방법은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참고하세요.
 
 ## 🏗️ 아키텍처
 
